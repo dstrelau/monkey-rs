@@ -6,3 +6,11 @@ edition = "2018"
 
 [dependencies]
 unicode-segmentation = "1.3.0"
+
+[lib]
+name = "monkey"
+path = "src/lib.rs"
+
+[[bin]]
+name = "monkey"
+path = "src/main.rs"

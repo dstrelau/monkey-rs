@@ -1,6 +1,44 @@
 use std::iter::{Enumerate, Peekable};
 use std::str::Chars;
 
+#[derive(Debug, PartialEq)]
+pub enum Token {
+    Illegal(usize, String),
+
+    // Syntax
+    LParen,
+    RParen,
+    LBrace,
+    RBrace,
+    Comma,
+    Semi,
+
+    // Operators
+    Plus,
+    Asterisk,
+    FSlash,
+    Bang,
+    GT,
+    LT,
+    Minus,
+    Eq,
+    NotEq,
+
+    // Keywords
+    Let,
+    Func,
+    Assign,
+    True,
+    False,
+    If,
+    Else,
+    Return,
+
+    // Values
+    Ident(String),
+    Int(String),
+}
+
 pub struct Lexer<'a> {
     chars: Peekable<Enumerate<Chars<'a>>>,
 }
@@ -15,10 +53,13 @@ impl Lexer<'_> {
     fn read_identifier(&mut self) -> Token {
         let i = self.read_while(char::is_alphanumeric);
         match i.as_str() {
-            "fn" => Token::Func,
-            "let" => Token::Let,
-            "true" => Token::True,
+            "else" => Token::Else,
             "false" => Token::False,
+            "fn" => Token::Func,
+            "if" => Token::If,
+            "let" => Token::Let,
+            "return" => Token::Return,
+            "true" => Token::True,
             _ => Token::Ident(i),
         }
     }
@@ -68,7 +109,12 @@ impl Iterator for Lexer<'_> {
                     '0'..='9' => self.read_int(),
                     '=' => {
                         self.chars.next();
-                        Token::Assign
+                        if let Some((_, '=')) = self.chars.peek() {
+                            self.chars.next();
+                            Token::Eq
+                        } else {
+                            Token::Assign
+                        }
                     }
                     '+' => {
                         self.chars.next();
@@ -88,7 +134,12 @@ impl Iterator for Lexer<'_> {
                     }
                     '!' => {
                         self.chars.next();
-                        Token::Bang
+                        if let Some((_, '=')) = self.chars.peek() {
+                            self.chars.next();
+                            Token::NotEq
+                        } else {
+                            Token::Bang
+                        }
                     }
                     '<' => {
                         self.chars.next();
@@ -128,39 +179,6 @@ impl Iterator for Lexer<'_> {
             }
         }
     }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Token {
-    Illegal(usize, String),
-
-    // Syntax
-    LParen,
-    RParen,
-    LBrace,
-    RBrace,
-    Comma,
-    Semi,
-
-    // Operators
-    Plus,
-    Asterisk,
-    FSlash,
-    Bang,
-    GT,
-    LT,
-    Minus,
-
-    // Keywords
-    Let,
-    Func,
-    Assign,
-    True,
-    False,
-
-    // Values
-    Ident(String),
-    Int(String),
 }
 
 #[cfg(test)]
@@ -203,36 +221,36 @@ mod tests {
             !a;
             a > b; b < c;",
             vec![
-                Token::Ident("a".to_string()),
+                Token::Ident(String::from("a")),
                 Token::Plus,
-                Token::Ident("b".to_string()),
+                Token::Ident(String::from("b")),
                 Token::Semi,
-                Token::Ident("a".to_string()),
+                Token::Ident(String::from("a".)),
                 Token::Minus,
-                Token::Ident("b".to_string()),
+                Token::Ident(String::from("b".)),
                 Token::Semi,
-                Token::Ident("a".to_string()),
+                Token::Ident(String::from("a".)),
                 Token::Asterisk,
-                Token::Ident("b".to_string()),
+                Token::Ident(String::from("b".)),
                 Token::Semi,
-                Token::Ident("a".to_string()),
+                Token::Ident(String::from("a".)),
                 Token::FSlash,
-                Token::Ident("b".to_string()),
+                Token::Ident(String::from("b".)),
                 Token::Semi,
                 Token::True,
                 Token::Semi,
                 Token::False,
                 Token::Semi,
                 Token::Bang,
-                Token::Ident("a".to_string()),
+                Token::Ident(String::from("a".)),
                 Token::Semi,
-                Token::Ident("a".to_string()),
+                Token::Ident(String::from("a".)),
                 Token::GT,
-                Token::Ident("b".to_string()),
+                Token::Ident(String::from("b".)),
                 Token::Semi,
-                Token::Ident("b".to_string()),
+                Token::Ident(String::from("b".)),
                 Token::LT,
-                Token::Ident("c".to_string()),
+                Token::Ident(String::from("c".)),
                 Token::Semi,
             ],
         )
@@ -244,9 +262,9 @@ mod tests {
             "let five = 5;",
             vec![
                 Token::Let,
-                Token::Ident("five".to_string()),
+                Token::Ident(String::from("five".)),
                 Token::Assign,
-                Token::Int("5".to_string()),
+                Token::Int(String::from("5".)),
                 Token::Semi,
             ],
         )
@@ -259,14 +277,14 @@ mod tests {
              let ten = 10;",
             vec![
                 Token::Let,
-                Token::Ident("five".to_string()),
+                Token::Ident(String::from("five".)),
                 Token::Assign,
-                Token::Int("5".to_string()),
+                Token::Int(String::from("5".)),
                 Token::Semi,
                 Token::Let,
-                Token::Ident("ten".to_string()),
+                Token::Ident(String::from("ten".)),
                 Token::Assign,
-                Token::Int("10".to_string()),
+                Token::Int(String::from("10".)),
                 Token::Semi,
             ],
         )
@@ -282,30 +300,77 @@ mod tests {
     let result = add(5, 10);",
             vec![
                 Token::Let,
-                Token::Ident("add".to_string()),
+                Token::Ident(String::from("add".)),
                 Token::Assign,
                 Token::Func,
                 Token::LParen,
-                Token::Ident("x".to_string()),
+                Token::Ident(String::from("x".)),
                 Token::Comma,
-                Token::Ident("y".to_string()),
+                Token::Ident(String::from("y".)),
                 Token::RParen,
                 Token::LBrace,
-                Token::Ident("x".to_string()),
+                Token::Ident(String::from("x".)),
                 Token::Plus,
-                Token::Ident("y".to_string()),
+                Token::Ident(String::from("y".)),
                 Token::Semi,
                 Token::RBrace,
                 Token::Semi,
                 Token::Let,
-                Token::Ident("result".to_string()),
+                Token::Ident(String::from("result".)),
                 Token::Assign,
-                Token::Ident("add".to_string()),
+                Token::Ident(String::from("add".)),
                 Token::LParen,
-                Token::Int("5".to_string()),
+                Token::Int(String::from("5".)),
                 Token::Comma,
-                Token::Int("10".to_string()),
+                Token::Int(String::from("10".)),
                 Token::RParen,
+                Token::Semi,
+            ],
+        )
+    }
+
+    #[test]
+    fn test_lexer_if_else_return() {
+        expect_tokens(
+            "if (a < b) {
+                return c;
+            } else {
+                return d;
+            }",
+            vec![
+                Token::If,
+                Token::LParen,
+                Token::Ident(String::from("a".)),
+                Token::LT,
+                Token::Ident(String::from("b".)),
+                Token::RParen,
+                Token::LBrace,
+                Token::Return,
+                Token::Ident(String::from("c".)),
+                Token::Semi,
+                Token::RBrace,
+                Token::Else,
+                Token::LBrace,
+                Token::Return,
+                Token::Ident(String::from("d".)),
+                Token::Semi,
+                Token::RBrace,
+            ],
+        )
+    }
+
+    #[test]
+    fn test_lexer_equality() {
+        expect_tokens(
+            "a == b ; b != c;",
+            vec![
+                Token::Ident(String::from("a".)),
+                Token::Eq,
+                Token::Ident(String::from("b".)),
+                Token::Semi,
+                Token::Ident(String::from("b".)),
+                Token::NotEq,
+                Token::Ident(String::from("c".)),
                 Token::Semi,
             ],
         )
