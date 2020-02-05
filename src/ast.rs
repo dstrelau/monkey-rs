@@ -4,14 +4,18 @@ pub struct Ident(pub String);
 #[derive(Debug, PartialEq)]
 pub enum Expr {
     Todo,
+    Ident(String),
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Statement {
     Let(Ident, Expr),
+    Return(Expr),
+    Expression(Expr),
     Incomplete,
 }
 
+#[derive(Debug)]
 pub struct Program {
     statements: Vec<Statement>,
 }
