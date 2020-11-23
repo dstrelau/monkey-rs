@@ -5,6 +5,7 @@ pub struct Ident(pub String);
 pub enum Expr {
     Todo,
     Ident(String),
+    Int(i64),
 }
 
 #[derive(Debug, PartialEq)]

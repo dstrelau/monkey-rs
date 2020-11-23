@@ -1,13 +1,14 @@
-use crate::ast;
-use crate::lexer::{Lexer, Token};
+use std::iter::Peekable;
+
 use ast::*;
 use failure::{bail, Error};
-use std::iter::Peekable;
+
+use crate::ast;
+use crate::lexer::{Lexer, Token};
 
 enum Precedence {
     Lowest,
 }
-
 pub struct Parser<'a> {
     lexer: Peekable<Lexer<'a>>,
 }
@@ -24,14 +25,21 @@ impl Parser<'_> {
         let mut errs = Vec::new();
         while let Some(_) = self.lexer.peek() {
             match self.parse_statement() {
-                Ok(s) => prog.push(s),
-                Err(e) => errs.push(e),
+                Ok(s) => {
+                    println!("got statement: {:?}", s);
+                    prog.push(s)
+                }
+                Err(e) => {
+                    println!("got error: {:?}", e);
+                    errs.push(e)
+                }
             }
         }
         (prog, errs)
     }
 
     fn parse_statement(&mut self) -> Result<Statement, Error> {
+        // println!("parse_statement");
         match self.lexer.peek() {
             Some(Token::Let) => self.parse_let_statement(),
             Some(Token::Return) => self.parse_return_statement(),
@@ -61,42 +69,45 @@ impl Parser<'_> {
         }
     }
 
-    fn consume_until_semi(&mut self) {
-        while let Some(expr) = self.lexer.next() {
-            match expr {
-                Token::Semi => break,
-                _ => {}
-            }
-        }
-    }
-
     fn parse_let_statement(&mut self) -> Result<Statement, Error> {
+        // println!("parse_let_statement");
         self.expect_next(Token::Let)?;
         let ident = self.read_identifier()?;
         self.expect_next(Token::Assign)?;
-        // TODO read expr
-        self.consume_until_semi();
-        Ok(Statement::Let(Ident(ident), Expr::Todo))
+        let expr = self.parse_expression(Precedence::Lowest)?;
+        self.expect_next(Token::Semi)?;
+        Ok(Statement::Let(Ident(ident), expr))
     }
 
     fn parse_return_statement(&mut self) -> Result<Statement, Error> {
+        // println!("parse_return_statement");
         self.expect_next(Token::Return)?;
-        // TODO read expr
-        self.consume_until_semi();
-        Ok(Statement::Return(Expr::Todo))
+        let expr = self.parse_expression(Precedence::Lowest)?;
+        self.expect_next(Token::Semi)?;
+        Ok(Statement::Return(expr))
     }
 
     fn parse_expression_statement(&mut self) -> Result<Statement, Error> {
-        let expr = self.parse_expression(Precedence::Lowest);
+        // println!("parse_expression_statement");
+        let expr = self.parse_expression(Precedence::Lowest)?;
         if self.lexer.peek() == Some(&Token::Semi) {
             self.lexer.next();
         }
         Ok(Statement::Expression(expr))
     }
 
-    fn parse_expression(&mut self, _p: Precedence) -> Expr {
-        self.consume_until_semi();
-        Expr::Todo
+    fn parse_expression(&mut self, _p: Precedence) -> Result<Expr, Error> {
+        let tkn = self.lexer.next();
+        // println!("parse_expression peeked: {:?}", tkn);
+        match tkn {
+            Some(Token::Ident(s)) => Ok(Expr::Ident(s.to_owned())),
+            Some(Token::Int(s)) => {
+                let n = i64::from_str_radix(&s, 10)?;
+                Ok(Expr::Int(n))
+            }
+            Some(_) => Ok(Expr::Todo),
+            None => bail!("parse_expression called with no more tokens"),
+        }
     }
 }
 
@@ -104,29 +115,36 @@ impl Parser<'_> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_parser() {
-        let code = "
-            let x = 9;
-            let y = 10;
-            return 1 + 2;";
+    fn parse(code: &str) -> (Program, Vec<Error>) {
         let l = Lexer::new(code);
         let mut p = Parser::new(l);
-        let (prog, _errs) = p.parse();
+        p.parse()
+    }
+
+    #[test]
+    fn test_parser() {
+        let (prog, _errs) = parse(
+            "
+            let x = 9;
+            let y = 10;
+            return 1 + 2;",
+        );
         let stmts = prog.statements();
         assert_eq!(3, stmts.len());
-        assert_eq!(stmts[0], Statement::Let(Ident("x".to_owned()), Expr::Todo));
-        assert_eq!(stmts[1], Statement::Let(Ident("y".to_owned()), Expr::Todo));
+        assert_eq!(
+            stmts[0],
+            Statement::Let(Ident("x".to_owned()), Expr::Int(9))
+        );
+        assert_eq!(
+            stmts[1],
+            Statement::Let(Ident("y".to_owned()), Expr::Int(10))
+        );
         assert_eq!(stmts[2], Statement::Return(Expr::Todo));
     }
 
     #[test]
     fn test_parse_expression_statement() {
-        let code = "foo;";
-        let l = Lexer::new(code);
-        let mut p = Parser::new(l);
-        let (prog, errs) = p.parse();
-        println!("{:?} {:?}", prog, errs);
+        let (prog, _errs) = parse("foo;");
         assert_eq!(1, prog.statements().len());
         assert_eq!(
             prog.statements()[0],

@@ -1,7 +1,7 @@
 use std::iter::{Enumerate, Peekable};
 use std::str::Chars;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Token {
     Illegal(usize, String),
 
